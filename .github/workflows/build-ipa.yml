@@ -39,6 +39,10 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      - name: List schemes
+        working-directory: StikDebug
+        run: xcodebuild -list
+
       - name: Resolve Swift Package dependencies
         working-directory: StikDebug
         run: |
@@ -63,7 +67,15 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            ONLY_ACTIVE_ARCH=NO | xcpretty
+            ONLY_ACTIVE_ARCH=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO | tee xcodebuild.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: StikDebug/xcodebuild.log
 
       - name: Package IPA (unsigned)
         run: |
