@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-latest
     timeout-minutes: 60
 
     steps:
@@ -32,7 +32,7 @@ jobs:
           ls -lh StikDebug/idevice/libidevice_ffi.a
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
       - name: Show SDK / Xcode versions
         run: |
@@ -44,21 +44,26 @@ jobs:
         run: |
           xcodebuild -resolvePackageDependencies \
             -scheme StikDebug \
+            -sdk iphoneos \
             -destination "generic/platform=iOS"
 
       - name: Archive (unsigned)
         working-directory: StikDebug
         run: |
-          xcodebuild archive \
+          set -o pipefail
+          xcodebuild clean archive \
             -scheme StikDebug \
+            -sdk iphoneos \
+            -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$RUNNER_TEMP/StikDebug.xcarchive" \
             SWIFT_OBJC_BRIDGING_HEADER="StikDebug/StikDebug-Bridging-Header.h" \
+            CODE_SIGN_STYLE=Manual \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            ONLY_ACTIVE_ARCH=NO
+            ONLY_ACTIVE_ARCH=NO | xcpretty
 
       - name: Package IPA (unsigned)
         run: |
