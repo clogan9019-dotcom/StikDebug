@@ -19,10 +19,12 @@ jobs:
           git clone \
             --depth=1 \
             --filter=blob:none \
-            --sparse \
+            --no-checkout \
             https://github.com/StephenDev0/StikDebug.git _upstream
           cd _upstream
-          git sparse-checkout set StikDebug/idevice/libidevice_ffi.a
+          git sparse-checkout init --no-cone
+          git sparse-checkout set "StikDebug/idevice/libidevice_ffi.a"
+          git checkout HEAD -- StikDebug/idevice/libidevice_ffi.a
           cp StikDebug/idevice/libidevice_ffi.a \
              "$GITHUB_WORKSPACE/StikDebug/idevice/libidevice_ffi.a"
           cd ..
