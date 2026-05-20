@@ -1,0 +1,82 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer
+
+      - name: Show SDK / Xcode versions
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Resolve Swift Package dependencies
+        working-directory: StikDebug
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -scheme StikDebug \
+            -destination "generic/platform=iOS"
+
+      - name: Archive (unsigned)
+        working-directory: StikDebug
+        run: |
+          xcodebuild archive \
+            -scheme StikDebug \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/StikDebug.xcarchive" \
+            SWIFT_OBJC_BRIDGING_HEADER="StikDebug/StikDebug-Bridging-Header.h" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            ONLY_ACTIVE_ARCH=NO \
+            | xcpretty || true
+          # Fallback: run raw if xcpretty not available
+          if [ ! -d "$RUNNER_TEMP/StikDebug.xcarchive" ]; then
+            xcodebuild archive \
+              -scheme StikDebug \
+              -destination "generic/platform=iOS" \
+              -archivePath "$RUNNER_TEMP/StikDebug.xcarchive" \
+              SWIFT_OBJC_BRIDGING_HEADER="StikDebug/StikDebug-Bridging-Header.h" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              AD_HOC_CODE_SIGNING_ALLOWED=YES \
+              ONLY_ACTIVE_ARCH=NO
+          fi
+
+      - name: Package IPA (unsigned)
+        run: |
+          APP_PATH=$(find "$RUNNER_TEMP/StikDebug.xcarchive/Products" -name "*.app" | head -1)
+          echo "App path: $APP_PATH"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -r "$APP_PATH" "$RUNNER_TEMP/Payload/StikDebug.app"
+          cd "$RUNNER_TEMP"
+          zip -r StikDebug.ipa Payload
+          ls -lh StikDebug.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StikDebug-unsigned
+          path: ${{ runner.temp }}/StikDebug.ipa
+          retention-days: 30
+
+      - name: Upload dSYMs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StikDebug-dSYMs
+          path: ${{ runner.temp }}/StikDebug.xcarchive/dSYMs
+          retention-days: 30
